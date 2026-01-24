@@ -79,4 +79,8 @@ passwords.txt
 
 # Diagrams and Images (temporary exclusion)
 3tier diagram.gif
-*.gif
+
+# Allow images directory structure but exclude actual image files for now
+# images/*.png
+# images/*.jpg
+# images/*.jpeg
