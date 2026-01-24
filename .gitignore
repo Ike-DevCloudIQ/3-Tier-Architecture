@@ -1,0 +1,82 @@
+# Terraform Files
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+
+# Terraform Directories
+.terraform/
+.terraform.lock.hcl
+
+# Terraform Plan Files
+*.tfplan
+*.tfplan.*
+
+# SSH Keys
+*.pem
+*.key
+
+# AWS Credentials
+.aws/
+aws-credentials.txt
+credentials.txt
+
+# Environment Variables
+.env
+.env.local
+.env.production
+.env.development
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Logs
+*.log
+logs/
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Backup Files
+*.backup
+*.bak
+
+# Application Specific
+errored.tfstate
+health-check.sh
+refresh-instances.sh
+
+# Secrets and Passwords
+secrets/
+passwords.txt
+*.secret
+
+# Certificates
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# Diagrams and Images (temporary exclusion)
+3tier diagram.gif
+*.gif

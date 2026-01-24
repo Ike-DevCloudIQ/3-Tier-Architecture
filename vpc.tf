@@ -49,7 +49,6 @@ resource "aws_subnet" "private_web_subnet_2" {
     tags = {
     Name = "${var.project_name}-private-web-subnet-2"
     }
-    }
 }
 
 # Create private subnet for app in AZ1

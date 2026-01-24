@@ -14,13 +14,76 @@ resource "aws_launch_template" "app_server_lt" {
 
 user_data = base64encode(<<-EOF
 #!/bin/bash
-set -euxo pipefail
 
-# Amazon Linux 2: reliably install python3
-amazon-linux-extras install -y python3.8 || yum install -y python3
+# Log all commands and errors
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-cd /opt
-nohup python3 -m http.server 8080 --bind 0.0.0.0 > /var/log/http.log 2>&1 &
+echo "Starting app server user data script..."
+
+# Update system packages
+yum update -y
+
+# Install Python3 (should already be available in Amazon Linux 2023)
+yum install -y python3
+
+# Create app directory
+mkdir -p /opt/app
+cd /opt/app
+
+# Create a simple Python app that responds on port 8080
+cat > /opt/app/app.py <<EOT
+#!/usr/bin/env python3
+
+import http.server
+import socketserver
+import json
+from datetime import datetime
+
+PORT = 8080
+
+class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            response = {
+                "message": "3-Tier Architecture - Application Server",
+                "status": "healthy",
+                "timestamp": datetime.now().isoformat(),
+                "tier": "application",
+                "port": PORT
+            }
+            
+            self.wfile.write(json.dumps(response).encode())
+        elif self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'OK')
+        else:
+            super().do_GET()
+
+with socketserver.TCPServer(("", PORT), MyHTTPRequestHandler) as httpd:
+    print(f"App server running on port {PORT}")
+    httpd.serve_forever()
+EOT
+
+# Make the script executable
+chmod +x /opt/app/app.py
+
+# Start the Python app server as a background service
+cd /opt/app
+nohup python3 app.py > /var/log/app-server.log 2>&1 &
+
+# Wait for the server to start
+sleep 5
+
+# Test the server locally
+curl -s http://localhost:8080/health > /tmp/app-test.log 2>&1
+
+echo "App server user data script completed successfully!"
 EOF
 )
 

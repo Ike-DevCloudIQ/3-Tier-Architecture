@@ -14,16 +14,69 @@ resource "aws_launch_template" "web_server_lt" {
 user_data = base64encode(<<-EOF
 #!/bin/bash
 
+# Log all commands and errors
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+echo "Starting user data script..."
+
+# Update system packages
+yum update -y
+
+# Install Apache HTTP Server
 yum install -y httpd
 
 # Ensure correct ownership and permissions
 chown -R apache:apache /var/www/html
 chmod -R 755 /var/www/html
 
-# Create index page
-echo "Project: How to deploy a High Availability web application on AWS!" > /var/www/html/index.html
+# Get instance metadata with IMDSv2 token for security
+TOKEN=$$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null)
+if [ -n "$$TOKEN" ]; then
+    INSTANCE_ID=$$(curl -H "X-aws-ec2-metadata-token: $$TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "unknown")
+    AZ=$$(curl -H "X-aws-ec2-metadata-token: $$TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone 2>/dev/null || echo "unknown")
+else
+    INSTANCE_ID="unknown"
+    AZ="unknown"
+fi
 
-# Explicitly allow access (Apache hardening fix)
+TIMESTAMP=$$(date)
+
+# Create a simple, reliable index page
+cat > /var/www/html/index.html <<EOT
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3-Tier Architecture Web Server</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .status { background-color: #d4edda; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 3-Tier Architecture Web Server</h1>
+        <div class="status">
+            <h2>✅ Server Status: Online</h2>
+            <p><strong>Instance ID:</strong> $${INSTANCE_ID}</p>
+            <p><strong>Availability Zone:</strong> $${AZ}</p>
+            <p><strong>Project:</strong> High Availability Web Application on AWS</p>
+            <p><strong>Timestamp:</strong> $${TIMESTAMP}</p>
+        </div>
+        <p>This web server is running in the presentation tier of a 3-tier architecture.</p>
+        <p>The load balancer is successfully routing traffic to this instance!</p>
+    </div>
+</body>
+</html>
+EOT
+
+# Create health check endpoint
+echo "OK" > /var/www/html/health
+
+# Create a simple test page
+echo "<h1>Health Check: OK</h1>" > /var/www/html/test.html
+
+# Configure Apache
 cat <<EOT > /etc/httpd/conf.d/allow-all.conf
 <Directory "/var/www/html">
     AllowOverride None
@@ -31,9 +84,20 @@ cat <<EOT > /etc/httpd/conf.d/allow-all.conf
 </Directory>
 EOT
 
+# Start and enable Apache
 systemctl start httpd
 systemctl enable httpd
-systemctl restart httpd
+
+# Wait for Apache to fully start
+sleep 10
+
+# Test Apache locally
+curl -s http://localhost/ > /tmp/apache-test.log 2>&1
+
+# Verify Apache is running and log status
+systemctl status httpd --no-pager -l
+
+echo "User data script completed successfully!"
 EOF
 )
 
